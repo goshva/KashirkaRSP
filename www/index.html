@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<!--
+    Copyright (c) 2012-2016 Adobe Systems Incorporated. All rights reserved.
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+     KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width" />
+    <!-- This is a wide open CSP declaration. To lock this down for production, see below. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *" />
+    <!-- Good default declaration:
+    * gap: is required only on iOS (when using UIWebView) and is needed for JS->native communication
+    * https://ssl.gstatic.com is required only on Android and is needed for TalkBack to function properly
+    * Disables use of eval() and inline scripts in order to mitigate risk of XSS vulnerabilities. To change this:
+        * Enable inline JS: add 'unsafe-inline' to default-src
+        * Enable eval(): add 'unsafe-eval' to default-src
+    * Create your own at http://cspisawesome.com
+    -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: 'unsafe-inline' https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; media-src *" /> -->
+
+    <!--<link rel="stylesheet" type="text/css" href="css/index.css" />-->
+
+
+
+
+    <title>Расписание занятий ЮНА AQUA LIFE на Каширском шоссе</title>
+    <style>
+    body{font-family: sans-serif;}
+    .rsptable{ border: 1px solid black; border-collapse: collapse; width:auto}
+    .rsptable th{ text-align:center;}
+    .rsptr{vertical-align: middle;}
+    .rsptd{ border: 1px solid gray; text-align: center;}
+    .rsptd ul{margin:0px; padding:0px}
+    .rsptd li{margin:0px; padding:0px;text-align: center;  list-style-type: none;}
+    #weekdays th {border-right-style: outset; border-right-width: 1px;}
+    .weekend{background-color: #ffe9e9!important;}
+    </style>
+</head>
+<body>
+    <div class="app">
+      <h3>Расписание занятий ЮНА AQUA LIFE на Каширском шоссе</h3>
+    <table id="rsp" class="rsptable sheet"></table>
+    </div>
+    <script type="text/javascript" src="cordova.js"></script>
+    <script type="text/javascript" src="js/index.js"></script>
+    <script type="text/javascript">
+        app.initialize();
+    </script>
+<script>
+var weekend;
+var discriptions;
+//Dom for rsp
+function createWeekdaysTR(weekdaysName,dates,weekend){
+  var rsp= document.getElementById("rsp");
+  var weekdays= document.createElement("tr");
+  weekdays.id = "weekdays";
+
+    var th= document.createElement("th");
+    th.innerText= "\u231A";
+    weekdays.appendChild(th);
+
+  for (var i = 0; i<weekdaysName.length; i++){
+    var th= document.createElement("th");
+    if (weekend[i]==true){th.className= "weekend";}
+    th.innerText=  dates[i].replace( /(\d{4})-(\d{2})-(\d{2})/, "$3.$2") + "\r\n"+ weekdaysName[i];
+
+    weekdays.appendChild(th);
+  }
+  rsp.appendChild(weekdays);
+}
+
+function CompareForSort(first, second)
+{
+    if (first == second)
+        return 0;
+    if (first < second)
+        return -1;
+    else
+        return 1;
+}
+function preparersp(obj){
+
+//var sdate = obj.listing[0]['sdate'];
+//var unixtime = new Date(sdate);
+var weekdaysName= obj.weekdaysname;
+weekend= obj.weekend;
+discriptions = obj.discriptions;
+var dates = obj.daysdates;
+createWeekdaysTR(weekdaysName,dates,weekend);
+var times = [];
+
+
+
+var listing = obj.listing;
+
+listing.forEach(function(item, i, listing) {
+
+//console.log(item.sdate)
+var date = item.sdate.substr(0,10)
+//console.log(date)
+
+var time = item.sdate.substr(11,5)
+
+
+  if (times.indexOf(time)== -1){
+    times.push(time)
+  }
+});
+times.sort(CompareForSort);
+
+
+
+var n = dates.length, m =times.length ;
+var mas = {};
+
+for (var i = 0; i < m; i++){
+
+mas[times[i]] = {};
+	for (var j = 0; j < n; j++){
+     mas[times[i]][dates[j]] = [];
+}}
+//console.log(mas);
+
+listing.forEach(function(item, i, listing) {
+
+var date = item.sdate.substr(0,10)
+var time = item.sdate.substr(11,5)
+
+
+if (mas[time][date]){
+  mas[time][date].push(item);
+
+}
+});
+
+tabler(mas);
+}
+///////////////////////////////////////////////////////////
+
+function GetRSP(nextweek) {
+    var xmlhttp = new XMLHttpRequest();
+
+    xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+            if (xmlhttp.status == 200) {
+                var Data = JSON.parse(xmlhttp.responseText);
+                preparersp(Data);
+//                AppendPrice(Data)
+            } else if (xmlhttp.status == 400) {
+                alert('There was an error 400');
+            } else {
+                alert('something else other than 200 was returned');
+            }
+        }
+    };
+
+    xmlhttp.open("GET", "http://kashirka.juna-life.ru/content/rsp_ajax.php"+nextweek, true);
+    xmlhttp.send();
+}
+
+
+lessonProto = {};
+lessonProto.lessonname= '';
+lessonProto.empname= '';
+lessonProto.plasename= '';
+lessonProto.dicription= '';
+
+
+function tabler(rsp){
+
+var rspDom= document.getElementById("rsp")
+Object.keys(rsp).map(function(objectKey, index) {
+var values = rsp[objectKey]
+
+
+
+var tr = document.createElement('tr');
+tr.className = "rsptr";
+var timetd = document.createElement('td');
+timetd.className = "rsptd";
+timetd.appendChild(document.createTextNode(objectKey));
+tr.appendChild(timetd);
+
+
+    Object.keys(values).map(function(objectKey, index) {
+      var value= values[objectKey];
+
+
+        var LessonList = document.createElement("ul");
+
+        if (!value[0]){ value[0]= lessonProto}
+          Object.keys(value).map(function(objectKey, index) {
+            var lesson= value[objectKey];
+
+
+
+var b = document.createElement("b");
+b.innerText = lesson.lessonname;
+b.title = discriptions[lesson.lessonname];
+b.style.cursor="help";
+
+var li = document.createElement("li");
+  li.appendChild(b);
+  LessonList.appendChild(li);
+
+var li = document.createElement("li");
+  li.appendChild(document.createTextNode(lesson.empname));
+  LessonList.appendChild(li);
+
+
+var li = document.createElement("li");
+  li.appendChild(document.createTextNode(lesson.plasename));
+  LessonList.appendChild(li);
+//
+
+
+        });
+
+
+          var td = document.createElement('td');
+          td.className = "rsptd";
+if (weekend[index]==true){td.className= "rsptd weekend";}
+
+          tr.appendChild(td)
+
+td.appendChild(LessonList);
+
+
+    });
+ rspDom.appendChild(tr)
+var mainwidth  = tr.offsetWidth;
+ console.log(1180-mainwidth);
+var news = document.getElementById('news&action');
+var widthminus = 1180-mainwidth;
+//if (widthminus< 329){
+//  news.style.width = widthminus +"px";
+//}
+if (widthminus<= 284 && news){
+  news.style.display = "none";
+  var mainInfo =   document.getElementById("mainInfo");
+  mainInfo.style.width = "100%"
+}
+
+});
+}
+
+	   GetRSP('');
+window.onscroll = function(ev) {
+    if ((window.innerHeight + window.scrollY+200) >= document.body.offsetHeight) {
+        GetRSP('?nextweek=true');
+        window.onscroll = null;
+    }
+};
+
+</script>
+
+</body>
+
+</html>
